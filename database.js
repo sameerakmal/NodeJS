@@ -1,10 +1,9 @@
 
-const URI = "mongodb+srv://sameerakmal:N3kgijA5SGxKBr6x@nnode.hpqsagr.mongodb.net/?appName=NNode";
-
+require("dotenv").config();
 const {MongoClient} = require("mongodb");
 
-const url = 'mongodb+srv://sameerakmal:N3kgijA5SGxKBr6x@nnode.hpqsagr.mongodb.net/?appName=NNode';
-const client = new MongoClient(url);
+const URI = process.env.MONGO_URI;
+const client = new MongoClient(URI);
 
 const dbname = 'HelloWorld';
 
