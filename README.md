@@ -1069,3 +1069,297 @@ app.get("/getUserData", (req, res) => {
 * Throw errors in routes
 * Handle them in a **single error-handling middleware**
 * Use try–catch only when you need custom handling
+
+
+# Cookies and JWT – Authentication Notes (Express.js)
+
+These notes explain **what cookies are**, **what JWT is**, **why they are used**, and **how they work together** using the Express.js login/profile example.
+
+---
+
+## 1. What is a Cookie?
+
+A **cookie** is a small key–value pair stored in the **user’s browser** by a server.
+
+### Key points about cookies
+
+* Stored on the **client (browser)**
+* Automatically sent with every request to the same domain
+* Used to maintain login state, preferences, sessions, etc.
+
+Example cookie:
+
+```
+token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+### Why cookies are useful
+
+* Browser handles sending them automatically
+* No need to manually attach data in every request
+* Can be secured using flags like:
+
+  * `httpOnly` (JS cannot access it)
+  * `secure` (HTTPS only)
+  * `sameSite` (CSRF protection)
+
+---
+
+## 2. What is JWT (JSON Web Token)?
+
+A **JWT** is a **signed token** that proves the identity of a user.
+
+### JWT structure
+
+```
+header.payload.signature
+```
+
+* **Header**: algorithm + token type
+* **Payload**: data (usually userId)
+* **Signature**: ensures token is not tampered with
+
+JWT is **not encrypted**, only encoded and signed.
+
+---
+
+## 3. Why JWT is used
+
+* Enables **stateless authentication**
+* Server does not store session data
+* Token itself carries user identity
+* Easy to scale for APIs
+
+JWT alone does nothing unless it is **stored and sent back**. That’s where cookies come in.
+
+## 4. Summary
+
+* **Cookie** stores data in browser
+* **JWT** proves user identity
+* Cookie automatically sends JWT
+* Server verifies JWT to authenticate
+* No server-side session storage
+
+This approach provides **stateless, scalable authentication** in Express.js.
+## /login code
+<img src="./img/image-1.png" width = 800>
+
+## /profile code
+<img src="./img/image.png" width = 800>
+
+# Mongoose Notes: Indexes, Unique Index, Compound Index, and `schema.pre`
+
+These notes explain **indexes in MongoDB/Mongoose**, why they are used, and how **Mongoose middleware (`schema.pre`)** works, with practical understanding for backend development.
+
+---
+
+## 1. What is an Index?
+
+An **index** is a data structure that MongoDB uses to **speed up query performance**.
+
+Without an index:
+
+* MongoDB scans **every document** in the collection (collection scan)
+
+With an index:
+
+* MongoDB uses the index to **quickly locate matching documents**
+
+### Example
+
+If you frequently query by `emailId`:
+
+```js
+User.findOne({ emailId })
+```
+
+Creating an index on `emailId` makes this query much faster.
+
+---
+
+## 2. Why Indexes are Important
+
+* Improve query speed
+* Reduce CPU and disk usage
+* Essential for large collections
+
+### Trade-offs
+
+* Indexes take extra memory
+* Writes become slightly slower (index must update)
+
+Indexes are a **read-performance optimization**.
+
+---
+
+## 3. Unique Index
+
+A **unique index** ensures that a field value is **unique across the collection**.
+
+### Common use case
+
+* Email
+* Username
+* Phone number
+
+### Example
+
+```js
+emailId: {
+  type: String,
+  required: true,
+  unique: true
+}
+```
+
+What happens:
+
+* MongoDB creates a unique index
+* Duplicate values are rejected
+
+### Important Note
+
+`unique: true` is **not validation**.
+It is an **index constraint** enforced by MongoDB.
+
+---
+
+## 4. Compound Index
+
+A **compound index** is an index on **multiple fields together**.
+
+### Why it is used
+
+* Queries that depend on more than one field
+* Enforces combined uniqueness
+
+### Example: Connection Request
+
+```js
+connectionRequestSchema.index(
+  { fromUserId: 1, toUserId: 1 },
+  { unique: true }
+);
+```
+
+This ensures:
+
+* Only one request from A → B exists
+* Prevents duplicate connection requests
+
+### Query optimization
+
+This index speeds up:
+
+```js
+ConnectionRequest.findOne({ fromUserId, toUserId })
+```
+
+---
+
+## 5. Order Matters in Compound Index
+
+```js
+{ fromUserId: 1, toUserId: 1 }
+```
+
+* Efficient for queries starting with `fromUserId`
+* Not efficient if querying only by `toUserId`
+
+MongoDB uses indexes **left to right**.
+
+---
+
+## 6. What is `schema.pre`?
+
+`schema.pre` is **Mongoose middleware** that runs **before** a specific operation.
+
+Common hooks:
+
+* `save`
+* `validate`
+* `remove`
+
+---
+
+## 7. `schema.pre("save")`
+
+Runs **before a document is saved** to the database.
+
+### Use cases
+
+* Validation
+* Data normalization
+* Preventing invalid operations
+
+### Example
+
+```js
+connectionRequestSchema.pre("save", async function () {
+  if (this.fromUserId.equals(this.toUserId)) {
+    throw new Error("Cannot send connection request to yourself");
+  }
+});
+```
+
+What happens:
+
+* Runs before `save()`
+* Throws error → save is aborted
+* Error bubbles up to route when `await save()` is used
+
+---
+
+## 8. `schema.pre` Execution Rules
+
+* Runs automatically
+* Runs for **every save**
+* Has access to the document via `this`
+
+### Middleware styles
+
+✅ Async style:
+
+```js
+schema.pre("save", async function () {
+  throw new Error("Error");
+});
+```
+
+✅ Callback style:
+
+```js
+schema.pre("save", function (next) {
+  next(new Error("Error"));
+});
+```
+
+❌ Mixing both styles causes errors
+
+---
+
+## 9. Index vs Middleware (Key Difference)
+
+| Index                     | Middleware              |
+| ------------------------- | ----------------------- |
+| Database-level constraint | Application-level logic |
+| Fast, enforced by MongoDB | Runs in Node.js         |
+| Prevents duplicates       | Prevents invalid logic  |
+
+Best practice:
+
+* Use **indexes for uniqueness & performance**
+* Use **middleware for business rules**
+
+---
+
+## 10. Summary
+
+* Indexes speed up queries
+* Unique index prevents duplicate values
+* Compound index works on multiple fields
+* Order matters in compound indexes
+* `schema.pre` runs logic before DB operations
+* Always `await save()` to catch middleware errors
+
+These concepts are critical for building **scalable and safe MongoDB-backed APIs**.
