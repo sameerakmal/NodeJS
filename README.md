@@ -1363,3 +1363,260 @@ Best practice:
 * Always `await save()` to catch middleware errors
 
 These concepts are critical for building **scalable and safe MongoDB-backed APIs**.
+
+# Redux – Clean, Practical Notes
+
+## What is Redux?
+
+Redux is a **state management library** for JavaScript applications.
+
+In simple terms:
+
+* It stores **global application state** in one place
+* Any component can **read** or **update** that state
+* State changes are **predictable** and **traceable**
+
+Redux follows a **unidirectional data flow**:
+
+Action → Reducer → Store → UI
+
+No shortcuts. No surprises.
+
+---
+
+## Why Redux is used
+
+Redux is used when:
+
+* State needs to be shared across many components
+* Prop drilling becomes messy
+* You want predictable state updates
+* Debugging state changes matters
+
+Redux is **not mandatory** for React.
+
+Do NOT use Redux for:
+
+* Simple local state
+* Small apps
+* Temporary UI state (modals, input values, toggles)
+
+Use Redux when state is **global, long-lived, and shared**.
+
+---
+
+## Core Redux Concepts
+
+### Store
+
+* The **single source of truth**
+* Holds the entire application state
+* Created once per app
+
+### Action
+
+* A **plain object** describing what happened
+* Must have a `type`
+
+### Reducer
+
+* A **pure function**
+* Takes current state and action
+* Returns new state OR mutates it (with Redux Toolkit)
+
+### Slice (Redux Toolkit)
+
+* A bundle of:
+
+  * initial state
+  * reducers
+  * action creators
+
+---
+
+## Creating a Store (Redux Toolkit)
+
+```js
+import { configureStore } from "@reduxjs/toolkit";
+import todoReducer from "./todoSlice";
+
+const store = configureStore({
+  reducer: {
+    todos: todoReducer,
+  },
+});
+
+export default store;
+```
+
+Key points:
+
+* `configureStore` always takes an **object**
+* `reducer` can be:
+
+  * a single reducer function
+  * an object of slice reducers
+
+---
+
+## Providing the Store to React
+
+```js
+import { Provider } from "react-redux";
+import store from "./store";
+
+<Provider store={store}>
+  <App />
+</Provider>
+```
+
+Without `Provider`, Redux does nothing.
+
+---
+
+## Creating a Slice
+
+```js
+import { createSlice, nanoid } from "@reduxjs/toolkit";
+
+const initialState = {
+  todos: [],
+};
+
+const todoSlice = createSlice({
+  name: "todos",
+  initialState,
+  reducers: {
+    addTodo: (state, action) => {
+      state.todos.push({
+        id: nanoid(),
+        text: action.payload,
+        completed: false,
+      });
+    },
+
+    toggleTodo: (state, action) => {
+      const todo = state.todos.find(t => t.id === action.payload);
+      if (todo) {
+        todo.completed = !todo.completed;
+      }
+    },
+
+    removeTodo: (state, action) => {
+      state.todos = state.todos.filter(
+        todo => todo.id !== action.payload
+      );
+    },
+  },
+});
+
+export const { addTodo, toggleTodo, removeTodo } = todoSlice.actions;
+export default todoSlice.reducer;
+```
+
+Important rules:
+
+* A reducer must **mutate state OR return a new state**
+* Never do both in the same reducer
+
+---
+
+## Mutation vs Replace Style
+
+### Mutation style (preferred with Redux Toolkit)
+
+```js
+state.todos.push(todo);
+todo.completed = true;
+```
+
+Works because Redux Toolkit uses **Immer**.
+
+### Replace style
+
+```js
+return state.filter(todo => todo.id !== id);
+```
+
+Also valid.
+
+Choose based on readability.
+
+---
+
+## useDispatch
+
+Used to **send actions** to Redux.
+
+```js
+import { useDispatch } from "react-redux";
+import { addTodo } from "./todoSlice";
+
+const dispatch = useDispatch();
+
+dispatch(addTodo("Buy milk"));
+```
+
+Dispatch does not change state directly.
+It **requests** a change.
+
+---
+
+## useSelector
+
+Used to **read state** from Redux.
+
+```js
+import { useSelector } from "react-redux";
+
+const todos = useSelector(state => state.todos.todos);
+```
+
+Rules:
+
+* Runs on every store update
+* Must be a pure function
+* Only select what you need
+
+---
+
+## State Shape Matters
+
+Your reducers depend on state structure.
+
+Example:
+
+```js
+{
+  todos: {
+    todos: []
+  }
+}
+```
+
+Bad state shape causes runtime errors.
+Always design state first.
+
+---
+
+## Common Mistakes
+
+* Forgetting `Provider`
+* Mutating `initialState` instead of `state`
+* Mixing mutation and return in one reducer
+* Using Redux for local UI state
+* Treating Redux as magic
+
+---
+
+## Mental Model to Remember
+
+* Store → holds state
+* Slice → state + reducers + actions
+* Action → describes what happened
+* Reducer → decides how state changes
+* Dispatch → asks Redux to change state
+* Selector → reads state
+
+Redux is boring on purpose.
+Boring state management is correct state management.
